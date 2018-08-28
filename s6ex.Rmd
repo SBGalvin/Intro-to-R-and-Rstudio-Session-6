@@ -1,0 +1,365 @@
+---
+title: "Session 6"
+output: html_notebook
+---
+# Part 1 Preparation
+
+## Identify  and list the correct files
+Create a list of all data files in the .csv folder
+```{r}
+files.list <- list.files(path= "s6data//",  # Folder in R project
+                         recursive=T,       # recursive extension
+                         pattern='*.csv')   # get files list from folder
+files.list                                  # list object name
+```
+
+## Appending file list:
+Append the appropriate file path to the csv list, so I don't have to open a new folder etc. We can do this using a for loop:
+```{r}
+for(i in 1: length(files.list)){
+  file.list <- paste("s6data//",files.list, sep="")
+  return(file.list)
+}
+```
+
+
+## `empty_as_na()` 
+Due to the uniquely messy PsychoPy2 output file, I created the following function to fill empty cells in a data subset: I partition for `Set A` data and then fill all the empty columns with `na`, then delete all columns with `na` as contents. This can be accompished basing our custom function on an ifelse statement
+
+```{r}
+#Custom empty function
+empty_as_na <- function(x){
+  if("factor" %in% class(x)) x <- as.character(x) ## since ifelse wont work with factors
+  ifelse(as.character(x)!="", x, NA)
+}
+```
+
+## Set options
+```{r}
+options(scipen = 999,                 # remove scientific notation
+        stringsAsFactors = FALSE)     # stops auto Factoring
+set.seed(42)                          # for random Numbers
+```
+
+## Load necessary packages
+```{r}
+#install.packages("janitor")
+source("StdScorePlot.R") # For Std Score Plots
+library(janitor)
+library(reshape2)
+library(viridis)
+library(tidyverse)
+```
+
+# 2) Main For loop
+The same set of functions are applied 5 times (once for each set), participant details ae extracted.
+
+For the `for loop` to work, we need to initialise empty data frames for our processed data to fill up
+```{r}
+# Initialise an empty dataframes to fill in the processing loop
+d   <- NULL # Test Data 
+TD  <- NULL # Test Details
+```
+
+This is the main processing loop:
+```{r}
+# For loop to clean and arrange data
+for(j in 1: length(file.list)){
+  
+  # data
+  data <- read.csv(file.list[j])
+  
+  # Test details
+  data %>%
+    select(participant, expName, date, frameRate) ->> td
+  td  <- td[1,]
+  TD  <- rbind(TD, td)
+  #### SET A ###########################
+  a_set <- data[1:12,]
+  
+  # empty na function
+  a_set %>%
+    mutate_all(funs(empty_as_na)) %>%
+    remove_empty(which="cols") ->> TestA
+  
+  # Rename the A images coded properly
+  TestA %>%
+    select(participant,
+           contains("images", ignore.case = TRUE), 
+           contains("Index", ignore.case = TRUE),
+           contains("rans", ignore.case = TRUE),
+           contains(".keys", ignore.case = FALSE),
+           contains(".cor", ignore.case = FALSE),
+           contains(".rt", ignore.case = FALSE))->> TestA.f
+  
+  # rename Cols
+  names(TestA.f)[2:7] <- c("Item", "Index", "Corrans", "Key_Raw", "Score", "RT")
+  
+  # Reorder by The item Index
+  TestA.g <- TestA.f[order(TestA.f$Index), ]
+  
+  suffix <- seq(1:12)# For renaming/numbering
+  
+  # this pastes for a regex
+  TestA.g$Item<- paste("A", 
+                       formatC(suffix, width=2, flag="0"), sep="_")
+  
+  # Separate into two DFs for melt
+  TestA.g %>%
+    select(participant, Item, Corrans,  Key_Raw, Score, RT) ->> TestA.h
+  
+  #### SET B ###########################
+  b_set <- data[13:24,]
+  
+  # Remove empty cells
+  b_set %>%
+    mutate_all(funs(empty_as_na)) %>%
+    remove_empty(which="cols") ->> TestB
+  
+  # Now Rename the A images coded properly
+  TestB %>%
+    select(participant,
+           contains("images", ignore.case = TRUE), 
+           contains("Index", ignore.case = TRUE),
+           contains("rans", ignore.case = TRUE),
+           contains(".keys", ignore.case = FALSE),
+           contains(".cor", ignore.case = FALSE),
+           contains(".rt", ignore.case = FALSE))->> TestB.f
+  #expName, Gender, frameRate, Sex, LevelEducation, session, date, Nationality,
+  # rename Cols
+  names(TestB.f)[2:7] <- c("Item", "Index", "Corrans", "Key_Raw", "Score", "RT")
+  # Reorder by The item Index
+  TestB.g <- TestB.f[order(TestB.f$Index), ]
+  ###
+  suffix <- seq(1:12)# For renaming/numbering
+  
+  # this pastes for a regex
+  TestB.g$Item<- paste("B", formatC(suffix, width=2, flag="0"), sep="_") 
+  
+  # Separate into two DFs for melt
+  TestB.g %>%
+    select(participant,Item, Corrans,  Key_Raw, Score, RT) ->> TestB.h
+  
+  #############################################
+  c_set <- data[25:36, ]
+  c_set %>%
+    mutate_all(funs(empty_as_na)) %>%
+    remove_empty(which="cols") ->> TestC
+  #############################################
+  # Now Rename the A images coded properly
+  TestC %>%
+    select(participant,
+           contains("images", ignore.case = TRUE), 
+           contains("Index", ignore.case = TRUE),
+           contains("rans", ignore.case = TRUE),
+           contains(".keys", ignore.case = FALSE),
+           contains(".cor", ignore.case = FALSE),
+           contains(".rt", ignore.case = FALSE))->> TestC.f
+  # rename Cols
+  names(TestC.f)[2:7] <- c("Item", "Index", "Corrans", "Key_Raw", "Score", "RT")
+  # Reorder by The item Index
+  TestC.g <- TestC.f[order(TestC.f$Index), ]
+  ###
+  suffix <- seq(1:12)# For renaming/numbering
+  TestC.g$Item<- paste("C", formatC(suffix, width=2, flag="0"), sep="_")
+  # Separate into two DFs for melt
+  TestC.g %>%
+    select(participant,Item, Corrans,  Key_Raw, Score, RT) ->> TestC.h
+  
+  ##############################################
+  d_set <- data[37:48, ]
+  d_set %>%
+    mutate_all(funs(empty_as_na)) %>%
+    remove_empty(which="cols") ->> TestD
+  #############################################
+  # Now Rename the A images coded properly
+  TestD %>%
+    select(participant,
+           contains("images", ignore.case = TRUE), 
+           contains("Index", ignore.case = TRUE),
+           contains("rans", ignore.case = TRUE),
+           contains(".keys", ignore.case = FALSE),
+           contains(".cor", ignore.case = FALSE),
+           contains(".rt", ignore.case = FALSE)
+           )->> TestD.f
+  # rename Cols
+  names(TestD.f)[2:7] <- c("Item", "Index", "Corrans", "Key_Raw", "Score", "RT")
+  # Reorder by The item Index
+  TestD.g <- TestD.f[order(TestD.f$Index), ]
+  ###
+  suffix <- seq(1:12)# For renaming/numbering
+  TestD.g$Item<- paste("D", formatC(suffix, width=2, flag="0"), sep="_") # this pastes for a regex
+
+  # Separate into two DFs for melt
+  TestD.g %>%
+    select(participant, Item, Corrans,  Key_Raw, Score, RT) ->> TestD.h
+
+  ###############################################
+  e_set <- data[49:60, ]
+  e_set %>%
+    mutate_all(funs(empty_as_na)) %>%
+    remove_empty(which="cols") ->> TestE
+  #############################################
+  # Now Rename the A images coded properly
+  TestE %>%
+    select(participant,
+           contains("images", ignore.case = TRUE), 
+           contains("Index", ignore.case = TRUE),
+           contains("rans", ignore.case = TRUE),
+           contains(".keys", ignore.case = FALSE),
+           contains(".cor", ignore.case = FALSE),
+           contains(".rt", ignore.case = FALSE))->> TestE.f
+  # rename Cols
+  names(TestE.f)[2:7] <- c("Item", "Index", "Corrans", "Key_Raw", "Score", "RT")
+  # Reorder by The item Index
+  TestE.g <- TestE.f[order(TestE.f$Index), ]
+  ###
+  suffix <- seq(1:12)# For renaming/numbering
+  TestE.g$Item<- paste("E", formatC(suffix, width=2, flag="0"), sep="_") 
+  # Separate into two DFs for melt
+  TestE.g %>%
+    select(participant, Item, Corrans,  Key_Raw, Score, RT) ->> TestE.h
+  
+  # Bind the data together
+  x  <- rbind(TestA.h, 
+              TestB.h, 
+              TestC.h, 
+              TestD.h, 
+              TestE.h)
+  
+  # Add newly processed row to blank dataframe
+  d  <-  rbind(d, x) # d is the output
+}
+```
+
+Now we can check out our dataframe
+```{r}
+d
+```
+Create a new variable for the Set each item belongs to
+```{r}
+d$Set <- substr(d$Item, 0, 1)
+```
+
+Change the participant, Item, Set, Corrans, Key_Raw and Score columns to a factor
+```{r}
+cols_d  <-  c("participant", "Item", "Set", "Corrans", "Key_Raw") # For desired cols
+
+d %>%
+  mutate_at(cols_d, funs(factor(.))) ->> d2
+
+d2
+```
+
+
+# 3 Plot the Data
+```{r}
+d2 %>%
+  ggplot(aes(x = RT, group = participant, fill=participant))+
+  geom_histogram(colour = "grey22")+
+  facet_wrap(participant~Score)+
+  theme_classic()+
+  xlab("Response Time")+
+  scale_fill_viridis(discrete = TRUE, guide=guide_legend(nrow=2))+
+  labs(fill = "Participant")+
+   theme(strip.text = element_text(size = 8,
+                                   face = "bold"),
+         strip.background = element_blank()) ->> FacetRT
+FacetRT
+```
+
+
+Summarise data
+```{r}
+d2 %>%
+  group_by(participant) %>%
+  summarise(Total = sum(Score), 
+            Prop.Correct = (Total/60),
+            RT.avg = mean(RT)) ->> Sum.tdy
+
+Sum.tdy
+```
+
+#4) Standard Score Plot
+```{r}
+standardScorePlot1(lb  = 55, 
+                  ub  = 145,
+                  lb1 = 70, 
+                  ub1 = 130, 
+                  lb2 = 80, 
+                  ub2 = 120, 
+                  lb3 = 90, 
+                  ub3 = 110,
+                  lb4 = 99.75,
+                  ub4 = 100.25)+
+  theme_classic() + coord_fixed(ratio=1700) +
+  theme(axis.text.x = element_text(colour="black", size="6"),
+        axis.line.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position="none") ->> ScorePlot1
+
+ScorePlot1
+```
+
+```{r}
+standardScorePlot2(lb  = 55, 
+                  ub  = 145,
+                  lb1 = 70, 
+                  ub1 = 130, 
+                  lb2 = 80, 
+                  ub2 = 120, 
+                  lb3 = 90, 
+                  ub3 = 110,
+                  lb4 = 99.75,
+                  ub4 = 100.25)+
+  theme_classic() + coord_fixed(ratio=1700) +
+  theme(axis.text.x = element_text(colour="black", size="6"),
+        axis.line.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position="none") ->> ScorePlot2
+
+ScorePlot2
+```
+
+If we want to place our Participant scores on the std score plot
+First we needto add a colum with a standard score
+```{r}
+Sum.tdy$StdScore <- c(55, 
+                      55, 
+                      55)
+```
+
+Then We need to figure out the y-axis location to place the participant on the curve
+```{r}
+pg <- ggplot_build(ScorePlot)
+#pg
+```
+
+This is the coordinate data produced during the plot generation for y-axis values. This will return probability values so Participant scores can be plotted on the Distribution curve (Aesthetic considerations) using geom_layer
+```{r}
+pg$data[[1]] ->> Plotdata
+Plotdata
+```
+
+As it turns the PDF function value is `0.000343353866` for all three participants,
+We know this will be messy so we can add a value
+```{r}
+Sum.tdy$Prob  <- c(0.000343353866,
+                   0.005743353866,
+                   0.011043353866)
+Sum.tdy
+```
+
+And now we can plot adding our new data to the `ScorePlot` object
+```{r}
+ScorePlot1+
+  geom_point(data = Sum.tdy, aes(x = StdScore, y = Prob, fill = participant),
+             size = 6,
+             shape = 21)
+  
+```
+
